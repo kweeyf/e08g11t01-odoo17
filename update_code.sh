@@ -3,7 +3,7 @@ set -euo pipefail
 
 OD_SERVICE="odoo17"
 LIVE_DIR="/opt/odoo17/odoo17"
-TEMP_DIR="/home/azureuser/deploy-temp"
+TEMP_DIR="/home/is214/deploy-temp"
 VENV_DIR="/opt/odoo17/odoo17-venv"
 ODOO_USER="odoo17"
 
@@ -24,10 +24,11 @@ if [ -f "${LIVE_DIR}/requirements.txt" ]; then
     "
 fi
 
-echo "[4] Fix file ownership"
-sudo chown -R ${ODOO_USER}:${ODOO_USER} ${LIVE_DIR}
+echo "[4] Fix ownership"
+sudo chown -R ${ODOO_USER}:${ODOO_USER} "${LIVE_DIR}"
 
 echo "[5] Start Odoo"
 sudo systemctl start ${OD_SERVICE}
 
-echo "Deployment complete."
+echo "[6] Check status"
+sudo systemctl is-active ${OD_SERVICE}
