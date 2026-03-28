@@ -24,10 +24,11 @@ if [ -f "${LIVE_DIR}/requirements.txt" ]; then
     "
 fi
 
-echo "[4] Fix file ownership"
-sudo chown -R ${ODOO_USER}:${ODOO_USER} ${LIVE_DIR}
+echo "[4] Fix ownership"
+sudo chown -R ${ODOO_USER}:${ODOO_USER} "${LIVE_DIR}"
 
 echo "[5] Start Odoo"
 sudo systemctl start ${OD_SERVICE}
 
-echo "Deployment complete."
+echo "[6] Check status"
+sudo systemctl is-active ${OD_SERVICE}
