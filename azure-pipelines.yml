@@ -2,14 +2,12 @@ trigger:
   branches:
     include:
       - Staging
-      - master
 
 variables:
   repoUrl: 'https://github.com/kweeyf/e08g11t01-odoo17.git'
   stagePath: '/home/is214'
   deployPath: '/home/is214/deploy-temp'
   updateScript: '/home/is214/deploy-temp/update_code.sh'
-  restoreScript: '/home/is214/deploy-temp/restore_db.sh'
 
 stages:
 - stage: Staging
