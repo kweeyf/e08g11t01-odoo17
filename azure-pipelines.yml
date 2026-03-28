@@ -2,61 +2,43 @@ trigger:
   branches:
     include:
       - Staging
-      - master
-
-pool:
-  name: Default
 
 variables:
   repoUrl: 'https://github.com/kweeyf/e08g11t01-odoo17.git'
+  stagePath: '/home/is214'
+  deployPath: '/home/is214/deploy-temp'
   updateScript: '/home/is214/deploy-temp/update_code.sh'
-  stagePath: '/home/is214/'
 
 stages:
-
-# =========================
-# STAGING STAGE
-# =========================
 - stage: Staging
   displayName: Deploy to Staging
   condition: eq(variables['Build.SourceBranchName'], 'Staging')
-
   jobs:
   - deployment: DeployStaging
+    displayName: Deploy to Staging VM
     environment: Staging
+    pool:
+      name: Default
+      demands:
+        - Agent.Name -equals odoostaging-vm
     strategy:
       runOnce:
         deploy:
           steps:
+          - checkout: none
 
-          # Sync code
-          - task: SSH@0
-            displayName: "Sync Code - Staging"
-            inputs:
-              sshEndpoint: 'odoostagingSSH'
-              runOptions: commands
-              commands: |
-                set -e
-                echo "Deploying branch: $(Build.SourceBranchName)"
-                cd $(stagePath)
-                rm -rf deploy-temp *-odoo17
-
-                git clone -b Staging $(repoUrl) --quiet
-                mv *-odoo17 deploy-temp
-
-                cd deploy-temp
-                rm -f .DS_Store
-                rm -rf .github
-
-          # Run update script
-          - task: SSH@0
-            displayName: "Run Update Script - Staging"
-            inputs:
-              sshEndpoint: 'odoostagingSSH'
-              runOptions: commands
-              commands: |
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' chmod +x $(updateScript)
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' $(updateScript)
+          - bash: |
+              set -e
+              echo "Deploying branch: $(Build.SourceBranchName)"
+              cd "$(stagePath)"
+              rm -rf "$(deployPath)"
+              git clone -b Staging "$(repoUrl)" "$(deployPath)" --quiet
+              cd "$(deployPath)"
+              rm -f .DS_Store
+              rm -rf .github
+              chmod +x "$(updateScript)"
+              sudo "$(updateScript)"
+            displayName: Sync code and run update script
 
 
 # =========================
