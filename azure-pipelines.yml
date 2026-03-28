@@ -4,130 +4,78 @@ trigger:
       - Staging
       - master
 
-pool:
-  name: Default
-
 variables:
-  repoUrl: 'https://github.com/souravb-smu/odoo17.git'
-  updateScript: '/home/azureuser/deploy-temp/update_code.sh'
-  stagePath: '/home/azureuser/'
+  repoUrl: 'https://github.com/kweeyf/e08g11t01-odoo17.git'
+  stagePath: '/home/is214'
+  deployPath: '/home/is214/deploy-temp'
+  updateScript: '/home/is214/deploy-temp/update_code.sh'
+  restoreScript: '/home/is214/deploy-temp/restore_db.sh'
 
 stages:
-
-# =========================
-# STAGING STAGE
-# =========================
 - stage: Staging
   displayName: Deploy to Staging
   condition: eq(variables['Build.SourceBranchName'], 'Staging')
-
   jobs:
   - deployment: DeployStaging
     environment: Staging
+    pool:
+      name: odoostaging-pool
     strategy:
       runOnce:
         deploy:
           steps:
+          - checkout: none
+          - bash: |
+              set -e
+              cd "$(stagePath)"
+              rm -rf "$(deployPath)"
+              git clone -b Staging "$(repoUrl)" "$(deployPath)" --quiet
+              cd "$(deployPath)"
+              rm -f .DS_Store
+              rm -rf .github
+              chmod +x "$(updateScript)"
+              sudo "$(updateScript)"
+            displayName: Sync code and run update script - Staging
 
-          # Sync code
-          - task: SSH@0
-            displayName: "Sync Code - Staging"
-            inputs:
-              sshEndpoint: 'ssh-odoo17'
-              runOptions: commands
-              commands: |
-                set -e
-                echo "Deploying branch: $(Build.SourceBranchName)"
-                cd $(stagePath)
-                rm -rf deploy-temp *-odoo17
-
-                git clone -b Staging $(repoUrl) --quiet
-                mv *-odoo17 deploy-temp
-
-                cd deploy-temp
-                rm -f .DS_Store
-                rm -rf .github
-
-          # Run update script
-          - task: SSH@0
-            displayName: "Run Update Script - Staging"
-            inputs:
-              sshEndpoint: 'ssh-odoo17'
-              runOptions: commands
-              commands: |
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' chmod +x $(updateScript)
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' $(updateScript)
-
-
-# =========================
-# PRODUCTION STAGE
-# =========================
 - stage: Production
   displayName: Deploy to Production
   condition: eq(variables['Build.SourceBranchName'], 'master')
-
   jobs:
   - deployment: DeployProduction
     environment: Production
+    pool:
+      name: odooproduction-pool
     strategy:
       runOnce:
         deploy:
           steps:
+          - checkout: none
+          - bash: |
+              set -e
+              cd "$(stagePath)"
+              rm -rf "$(deployPath)"
+              git clone -b master "$(repoUrl)" "$(deployPath)" --quiet
+              cd "$(deployPath)"
+              rm -f .DS_Store
+              rm -rf .github
+            displayName: Sync code - Production
 
-          # Sync code
-          - task: SSH@0
-            displayName: "Sync Code - Production"
-            inputs:
-              sshEndpoint: 'ssh-odoo17-production'
-              runOptions: commands
-              commands: |
-                set -e
-                echo "Deploying branch: $(Build.SourceBranchName)"
-                cd $(stagePath)
-                rm -rf deploy-temp *-odoo17
+          - bash: |
+              set -e
+              gunzip -c "$(deployPath)/odoo.sql.gz" > "$(deployPath)/odoo.sql"
+            displayName: Uncompress odoo.sql.gz
 
-                git clone -b master $(repoUrl) --quiet
-                mv *-odoo17 deploy-temp
+          - bash: |
+              set -e
+              sudo cp "$(restoreScript)" /tmp/restore_db.sh
+              sudo cp "$(deployPath)/odoo.sql" /tmp/odoo.sql
+              sudo chmod +x /tmp/restore_db.sh
+              sudo chmod 644 /tmp/odoo.sql
+              sudo -u postgres /tmp/restore_db.sh "odoo17" "odoo" "/tmp/odoo.sql"
+            displayName: Restore Database
 
-                cd deploy-temp
-                rm -f .DS_Store
-                rm -rf .github
-
-          # Uncompress SQL on VM
-          - task: SSH@0
-            displayName: "Uncompress odoo.sql.gz on VM"
-            inputs:
-              sshEndpoint: 'ssh-odoo17-production'
-              runOptions: commands
-              commands: |
-                set -e
-                cd $(stagePath)/deploy-temp/
-                echo "Uncompressing odoo.sql.gz..."
-                gunzip -c $(tempDeploy)/odoo.sql.gz > $(tempDeploy)/odoo.sql
-                echo "Uncompress complete: $(stagePath)/deploy-temp/odoo.sql"
-
-          # Restore Database
-          - task: SSH@0
-            displayName: "Restore Database"
-            inputs:
-              sshEndpoint: 'ssh-odoo17-production'
-              runOptions: commands
-              commands: |
-                set -e
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' cp /home/azureuser/deploy-temp/restore_db.sh /tmp/
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' cp /home/azureuser/deploy-temp/odoo.sql /tmp/
-
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' chmod +x /tmp/restore_db.sh
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' chmod 644 /tmp/odoo.sql
-
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' -u postgres /tmp/restore_db.sh "odoo17" "odoo" "/tmp/odoo.sql"
-
-          # Run update script
-          - task: SSH@0
-            displayName: "Run Update Script - Production"
-            inputs:
-              sshEndpoint: 'ssh-odoo17-production'
-              runOptions: commands
-              commands: |
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' chmod +x $(updateScript)
-                echo "$(STAGINGUSERPASSWORD)" | sudo -S -p '' $(updateScript)
+          - bash: |
+              set -e
+              chmod +x "$(updateScript)"
+              sudo "$(updateScript)"
+            displayName: Run update script - Production
