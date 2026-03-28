@@ -19,7 +19,9 @@ stages:
   - deployment: DeployStaging
     environment: Staging
     pool:
-      name: odoostaging-pool
+      name: Default
+      demands:
+        - Agent.Name -equals odoostaging-vm
     strategy:
       runOnce:
         deploy:
@@ -44,7 +46,9 @@ stages:
   - deployment: DeployProduction
     environment: Production
     pool:
-      name: odooproduction-pool
+      name: Default
+      demands:
+        - Agent.Name -equals odooproduction-vm
     strategy:
       runOnce:
         deploy:
